@@ -1,5 +1,7 @@
 # neurhon UI: contract for the EEG and Spotify side
 
+Poradnik krok po kroku (PDF): `docs/poradnik_dla_zespolu.pdf`.
+
 The UI never talks to the headband or to Spotify. It talks to the server in
 `neurhon/server/`, and the server talks to three interfaces defined in
 `neurhon/server/interfaces.py`. Implement those, and the UI works.

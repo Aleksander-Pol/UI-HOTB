@@ -104,3 +104,8 @@ python -m neurhon.server.main --no-browser --port 8000   # z katalogu głównego
 - **Mapa nastroju:** bez śladu (trace) i bez kotwic z nazwami nastrojów. Zostaje tylko kropka z podpisem aktualnego nastroju, która jedzie razem z nią, i fala przy zmianie nastroju. Użytkownik wprost zrezygnował z trace'u i kotwic. Pola `energy`/`valence` w `MOOD_LABELS` zostają w `config.py`, ale UI ich już nie rysuje.
 - Animacje: wartości z skilla `better-ui` (wejście 300 ms z blurem 4 px i przesunięciem 12 px, schodkowo co 100 ms; wyjścia 150 ms; wciśnięcie 0.96). Cały ruch jest za `prefers-reduced-motion: no-preference`, bez niego zostaje cross-fade opacity. Duży ρ w tle "oddycha" (8 s).
 - Powierzchnie mają cień zamiast obramowania (z `border: 1px solid transparent` na tryb forced-colors).
+
+## 10. Poradnik dla zespołów EEG i Spotify
+- `docs/poradnik_dla_zespolu.pdf` (9 stron, po polsku): gdzie wstawić `EegMoodProvider` i `SpotifyMusicController`, jak je podpiąć w `main.py`, zasady (szybkie `get_mood()`, cache stanu Spotify, odświeżenie po poleceniu), tryb auto i przerwy, lista kontrolna i najczęstsze problemy.
+- Szablony kodu z poradnika przetestowano na atrapach (bez opaski i Spotify). Nazw metod biblioteki `spotipy` nie sprawdzano na prawdziwym koncie.
+- PDF zbudowano skryptem `reportlab` poza repo; po zmianach kontraktu trzeba go odświeżyć.
