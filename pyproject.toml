@@ -8,8 +8,17 @@ version = "0.0.0"
 dependencies = [
     "brainaccess-board",
     "brainaccess",
-    "rich"
+    "rich",
+    "fastapi",
+    "uvicorn[standard]"
 ]
 
 [project.scripts]
 neurhon-run = "neurhon.entry:run"
+neurhon-ui = "neurhon.server.main:main"
+
+[tool.setuptools.packages.find]
+include = ["neurhon*"]
+
+[tool.setuptools.package-data]
+neurhon = ["ui/**/*"]
