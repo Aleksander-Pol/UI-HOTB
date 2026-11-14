@@ -7,6 +7,7 @@ name = "neurhon"
 version = "0.0.0"
 dependencies = [
     "brainaccess-board",
+    "brainaccess",
     "rich"
 ]
 

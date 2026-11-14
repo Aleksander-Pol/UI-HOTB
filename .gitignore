@@ -1,3 +1,4 @@
 **/**.histfile
 .vnv
 *.egg-info
+**/__pycache__
