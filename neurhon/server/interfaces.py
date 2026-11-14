@@ -35,3 +35,71 @@ class MoodProvider(ABC):
     @abstractmethod
     def get_mood(self) -> Mood:
         """Return the most recent mood reading."""
+
+
+@dataclass
+class Track:
+    """A song that is currently playing (or was last played)."""
+
+    title: str
+    artist: str
+    playlist: str = ""
+
+
+class MusicController(ABC):
+    """Remote control for the music player.
+
+    The Spotify side implements this. The UI buttons (play, pause, next)
+    and the auto mode both go through these methods.
+    """
+
+    @abstractmethod
+    def play(self) -> None:
+        """Start or resume playback."""
+
+    @abstractmethod
+    def pause(self) -> None:
+        """Pause playback."""
+
+    @abstractmethod
+    def next_track(self) -> None:
+        """Skip to the next song."""
+
+    @abstractmethod
+    def now_playing(self) -> Track | None:
+        """Return the current song, or None if nothing is loaded."""
+
+    @abstractmethod
+    def is_playing(self) -> bool:
+        """Return True while music is playing, False when paused."""
+
+
+@dataclass
+class HistoryEntry:
+    """One record in the listening history: a song change and why it happened."""
+
+    timestamp: float
+    track: Track
+    mood: Mood
+    reason: str = "auto"
+
+
+class HistoryStore(ABC):
+    """Storage for the listening history.
+
+    The first implementation writes a JSON Lines file. Because the server
+    only uses these two methods, it can be swapped for SQLite later without
+    touching the server or the UI.
+    """
+
+    @abstractmethod
+    def append(self, entry: HistoryEntry) -> None:
+        """Save one entry at the end of the history."""
+
+    @abstractmethod
+    def get_entries(self, limit: int = 100, since: float | None = None) -> list[HistoryEntry]:
+        """Return up to `limit` newest entries, newest first.
+
+        If `since` is given (unix time), skip entries older than that.
+        """
+
