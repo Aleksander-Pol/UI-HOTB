@@ -42,6 +42,7 @@ class DataStreamContinuous:
     def _process_data_frame(self, dataFrame):
 
         print("Processing data_frame, shape ", dataFrame.shape)
+        print(dataFrame)
 
     def start_streaming(self):
         core.init()
@@ -70,7 +71,7 @@ class DataStreamContinuous:
                 mgr.set_channel_gain(
                     eeg_channel.ELECTRODE_MEASUREMENT + i, GainMode.X8
                 )
-            mgr.set_channel_bias(eeg_channel.ELECTRODE_MEASUREMENT + i, True)
+            #mgr.set_channel_bias(eeg_channel.ELECTRODE_MEASUREMENT + i, True)
 
             eeg_enabled_nr = ch_nr
 
