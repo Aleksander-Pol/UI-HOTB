@@ -8,12 +8,13 @@ import time
 
 from neurhon.server.interfaces import Mood, MoodProvider, MusicController, Track
 
-# Rough position of each mood label on the arousal / valence map.
+# Typowe wartości (energy, valence, focus) dla każdej etykiety nastroju.
+# "tired" ma niski focus, więc w demo to ten nastrój uruchamia propozycję przerwy.
 _MOOD_CENTERS = {
-    "calm": (0.2, 0.7),
-    "focused": (0.6, 0.6),
-    "stressed": (0.85, 0.2),
-    "tired": (0.15, 0.3),
+    "calm": (0.2, 0.7, 0.5),
+    "focused": (0.6, 0.6, 0.85),
+    "stressed": (0.85, 0.2, 0.45),
+    "tired": (0.15, 0.3, 0.2),
 }
 
 
@@ -36,10 +37,14 @@ class MockMoodProvider(MoodProvider):
             self._label = random.choice(list(_MOOD_CENTERS))
             self._changed_at = now
 
-        arousal, valence = _MOOD_CENTERS[self._label]
+        energy, valence, focus = _MOOD_CENTERS[self._label]
         return Mood(
             label=self._label,
-            scores={"arousal": _jitter(arousal), "valence": _jitter(valence)},
+            scores={
+                "valence": _jitter(valence),
+                "energy": _jitter(energy),
+                "focus": _jitter(focus),
+            },
             timestamp=now,
         )
 
@@ -59,6 +64,7 @@ class MockMusicController(MusicController):
     def __init__(self):
         self._index = 0
         self._playing = False
+        self._override = None  # utwór puszczony przez play_track (np. na przerwę)
 
     def play(self) -> None:
         self._playing = True
@@ -67,10 +73,15 @@ class MockMusicController(MusicController):
         self._playing = False
 
     def next_track(self) -> None:
+        self._override = None
         self._index = (self._index + 1) % len(_MOCK_TRACKS)
 
+    def play_track(self, track: Track) -> None:
+        self._override = track
+        self._playing = True
+
     def now_playing(self) -> Track | None:
-        return _MOCK_TRACKS[self._index]
+        return self._override or _MOCK_TRACKS[self._index]
 
     def is_playing(self) -> bool:
         return self._playing

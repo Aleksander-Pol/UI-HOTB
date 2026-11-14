@@ -2,7 +2,7 @@
 
 import { api } from "../api.js";
 import { h, toast } from "../dom.js";
-import { saveSettings, settings, state } from "../state.js";
+import { saveSettings, setBreak, settings, state } from "../state.js";
 
 function spotifySection(spotify) {
   const configured = spotify?.configured;
@@ -126,10 +126,59 @@ function mappingSection() {
   );
 }
 
+function breakSection() {
+  const input = h("input", {
+    class: "field",
+    type: "number",
+    id: "break-threshold",
+    min: "0.05",
+    max: "0.95",
+    step: "0.05",
+    value: state.break.threshold.toFixed(2),
+    "aria-label": "Focus threshold",
+  });
+
+  async function save() {
+    const value = Number(input.value);
+    if (!(value >= 0.05 && value <= 0.95)) {
+      toast("Enter a number between 0.05 and 0.95.");
+      return;
+    }
+    try {
+      setBreak(await api.setBreakThreshold(value));
+      toast("Threshold saved");
+    } catch {
+      toast("Could not save the threshold.");
+    }
+  }
+
+  return h(
+    "section",
+    { class: "card" },
+    h("h2", { class: "card-title" }, "Break mode"),
+    h("p", { class: "hint", style: "margin-bottom:14px" }, "When Focus stays below this value, a calm song plays and you are offered a break. Turn the mode on from the Dashboard."),
+    h(
+      "div",
+      { class: "filters", style: "margin:0" },
+      h("label", { for: "break-threshold", style: "align-self:center" }, "Focus threshold"),
+      input,
+      h("button", { class: "btn btn-primary", type: "button", onclick: save }, "Save threshold")
+    ),
+    h(
+      "dl",
+      { class: "kv", style: "margin-top:14px" },
+      h("dt", null, "Low for"),
+      h("dd", null, "20 seconds in a row"),
+      h("dt", null, "Break length"),
+      h("dd", null, "10 minutes, the app is paused")
+    )
+  );
+}
+
 export function render(root) {
   root.append(
     h("h1", { class: "page-title" }, "Settings"),
     h("p", { class: "page-sub" }, "Connections, display options and how moods map to music."),
-    h("div", { class: "stack" }, spotifySection(state.status?.spotify), deviceSection(state.status), displaySection(), mappingSection())
+    h("div", { class: "stack" }, spotifySection(state.status?.spotify), deviceSection(state.status), breakSection(), displaySection(), mappingSection())
   );
 }

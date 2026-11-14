@@ -3,8 +3,11 @@
 import { api, openMoodSocket } from "./api.js";
 
 const SETTINGS_KEY = "neurhon.ui.settings";
-const TRAIL_LENGTH = 30;
 const DEFAULT_COLOR = "#4f8cff";
+const NEUTRAL_ACCENT = "#f2f2f0";
+
+// Na razie UI jest monochromatyczne. Zmień na true, żeby wrócić do kolorów nastrojów z config.py.
+export const USE_MOOD_COLORS = false;
 
 // ---- settings kept in this browser only ----
 
@@ -37,8 +40,8 @@ export const state = {
   mood: null,
   player: null,
   auto: false,
+  break: { enabled: false, phase: "off", threshold: 0.3, ends_at: null },
   live: false,
-  trail: [],
 };
 
 const listeners = new Set();
@@ -53,8 +56,13 @@ export function moodMeta(label) {
   return state.config.moods.find((m) => m.id === label) || null;
 }
 
+/** Kolor nastroju, albo null, gdy kolory są wyłączone. */
+export function moodColor(label) {
+  return USE_MOOD_COLORS ? moodMeta(label)?.color || DEFAULT_COLOR : null;
+}
+
 function applyAccent() {
-  const color = moodMeta(state.mood?.label)?.color || DEFAULT_COLOR;
+  const color = moodColor(state.mood?.label) || NEUTRAL_ACCENT;
   document.documentElement.style.setProperty("--mood", color);
 }
 
@@ -79,12 +87,8 @@ function applySnapshot(message) {
   state.mood = message.mood;
   state.player = message.player;
   state.auto = message.auto;
+  if (message.break) state.break = message.break;
 
-  const { arousal, valence } = message.mood?.scores || {};
-  if (arousal != null && valence != null) {
-    state.trail.push({ arousal, valence });
-    if (state.trail.length > TRAIL_LENGTH) state.trail.shift();
-  }
   notify();
 }
 
@@ -95,6 +99,11 @@ export function setPlayer(player) {
 
 export function setAuto(auto) {
   state.auto = auto;
+  notify();
+}
+
+export function setBreak(breakState) {
+  state.break = breakState;
   notify();
 }
 

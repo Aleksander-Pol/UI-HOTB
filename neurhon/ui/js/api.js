@@ -25,6 +25,11 @@ export const api = {
     if (since != null) params.set("since", since);
     return request("GET", `/api/history?${params}`);
   },
+  setBreakEnabled: (enabled) => request("POST", "/api/break/enabled", { enabled }),
+  acceptBreak: () => request("POST", "/api/break/accept"),
+  dismissBreak: () => request("POST", "/api/break/dismiss"),
+  endBreak: () => request("POST", "/api/break/end"),
+  setBreakThreshold: (value) => request("PUT", "/api/break/threshold", { value }),
   mappings: () => request("GET", "/api/mappings"),
   saveMappings: (mappings) => request("PUT", "/api/mappings", { mappings }),
 };

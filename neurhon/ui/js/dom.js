@@ -40,7 +40,7 @@ export function s(tag, attrs, ...children) {
 export function icon(pathData, filled = false) {
   return s(
     "svg",
-    { viewBox: "0 0 24 24", fill: filled ? "currentColor" : "none", stroke: "currentColor", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" },
+    { viewBox: "0 0 24 24", fill: filled ? "currentColor" : "none", stroke: "currentColor", "stroke-width": filled ? "1.8" : "2.2", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" },
     s("path", { d: pathData })
   );
 }

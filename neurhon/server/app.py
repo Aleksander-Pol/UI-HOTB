@@ -9,9 +9,26 @@ from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from neurhon.server.config import DATA_DIR, METRICS, MOOD_LABELS, get_setting
+from neurhon.server.break_mode import (
+    ACTIVE,
+    EVENT_OFFER,
+    OFFER,
+    BreakMonitor,
+)
+from neurhon.server.config import (
+    BREAK_COOLDOWN_MINUTES,
+    BREAK_GRACE_MINUTES,
+    BREAK_MINUTES,
+    BREAK_TRACK,
+    DATA_DIR,
+    FOCUS_THRESHOLD_DEFAULT,
+    LOW_FOCUS_SECONDS,
+    METRICS,
+    MOOD_LABELS,
+    get_setting,
+)
 from neurhon.server.interfaces import (
     HistoryEntry,
     HistoryStore,
@@ -31,6 +48,14 @@ class MappingsBody(BaseModel):
     mappings: dict[str, str]
 
 
+class EnabledBody(BaseModel):
+    enabled: bool
+
+
+class ThresholdBody(BaseModel):
+    value: float = Field(ge=0.0, le=1.0)  # próg focusu, 0..1
+
+
 def create_app(
     mood: MoodProvider,
     music: MusicController,
@@ -42,6 +67,27 @@ def create_app(
     state = {"auto": False, "mood": None}
     clients: set[WebSocket] = set()
     mappings_path = data_dir / "mappings.json"
+    settings_path = data_dir / "settings.json"
+
+    def load_settings() -> dict:
+        try:
+            return json.loads(settings_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def save_settings(patch: dict) -> None:
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(
+            json.dumps({**load_settings(), **patch}, indent=2), encoding="utf-8"
+        )
+
+    breaker = BreakMonitor(
+        threshold=load_settings().get("focus_threshold", FOCUS_THRESHOLD_DEFAULT),
+        low_seconds=LOW_FOCUS_SECONDS,
+        break_seconds=BREAK_MINUTES * 60,
+        cooldown_seconds=BREAK_COOLDOWN_MINUTES * 60,
+        grace_seconds=BREAK_GRACE_MINUTES * 60,
+    )
 
     def latest_mood():
         return state["mood"] or mood.get_mood()
@@ -58,6 +104,7 @@ def create_app(
             "mood": asdict(latest_mood()),
             "player": player_state(),
             "auto": state["auto"],
+            "break": breaker.snapshot(),
         }
 
     def log_change(reason: str) -> None:
@@ -71,9 +118,21 @@ def create_app(
         PLACEHOLDER: choosing the music from the mood is the Spotify side's job.
         Here the next song of the mock playlist stands in for that choice.
         """
+        if breaker.phase == ACTIVE:
+            breaker.update(None)  # tylko sprawdza, czy minął czas przerwy
+            return  # program jest zawieszony: bez odczytu nastroju, muzyki i historii
+
         previous = state["mood"]
         current = mood.get_mood()
         state["mood"] = current
+
+        if breaker.update(current.scores.get("focus")) == EVENT_OFFER:
+            music.play_track(BREAK_TRACK)
+            log_change(f"break: low focus ({current.scores['focus']:.2f})")
+            return
+        if breaker.phase == OFFER:
+            return  # gra utwór przerwy, tryb auto go nie zmienia
+
         if (
             state["auto"]
             and previous is not None
@@ -166,6 +225,37 @@ def create_app(
     def set_auto(body: AutoBody):
         state["auto"] = body.enabled
         return {"auto": state["auto"]}
+
+    @app.post("/api/break/enabled")
+    def set_break_enabled(body: EnabledBody):
+        was_offer = breaker.phase == OFFER
+        breaker.set_enabled(body.enabled)
+        if was_offer and not body.enabled:
+            music.pause()  # propozycja zniknęła, więc zatrzymujemy utwór przerwy
+        return breaker.snapshot()
+
+    @app.post("/api/break/accept")
+    def accept_break():
+        if breaker.accept():
+            music.pause()  # przerwa: muzyka stoi
+        return breaker.snapshot()
+
+    @app.post("/api/break/dismiss")
+    def dismiss_break():
+        if breaker.dismiss():
+            music.pause()  # "Nie teraz": zatrzymaj utwór przerwy
+        return breaker.snapshot()
+
+    @app.post("/api/break/end")
+    def end_break():
+        breaker.end()
+        return breaker.snapshot()
+
+    @app.put("/api/break/threshold")
+    def set_break_threshold(body: ThresholdBody):
+        breaker.threshold = body.value
+        save_settings({"focus_threshold": body.value})
+        return breaker.snapshot()
 
     @app.get("/api/mappings")
     def get_mappings():

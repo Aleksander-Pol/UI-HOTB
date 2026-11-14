@@ -2,7 +2,7 @@
 
 import { api } from "../api.js";
 import { capitalize, h } from "../dom.js";
-import { isPaused, moodMeta, state } from "../state.js";
+import { isPaused, moodColor, moodMeta, state } from "../state.js";
 
 const RANGES = [
   { id: "all", title: "All time" },
@@ -77,7 +77,7 @@ export function render(root) {
       { class: "history-item" },
       h("span", { class: "history-time" }, time),
       h("div", { class: "history-track" }, h("strong", null, entry.track.title), h("span", null, `${entry.track.artist}${entry.track.playlist ? `, ${entry.track.playlist}` : ""}`)),
-      h("span", { class: "chip" }, h("i", { style: `background:${meta?.color || "#93a0bb"}` }), meta?.title ?? capitalize(entry.mood.label)),
+      h("span", { class: "chip" }, h("i", { style: moodColor(entry.mood.label) ? `background:${moodColor(entry.mood.label)}` : null }), meta?.title ?? capitalize(entry.mood.label)),
       h("span", { class: "history-reason" }, reasonText(entry.reason))
     );
   }

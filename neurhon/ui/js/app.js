@@ -1,5 +1,6 @@
 // Entry point: builds the menu, starts the live state and switches views by URL hash.
 
+import { mountBreak } from "./break.js";
 import { h, icon } from "./dom.js";
 import { modules } from "./modules.js";
 import { initState, subscribe } from "./state.js";
@@ -68,6 +69,7 @@ async function boot() {
   buildNav();
   await initState();
   subscribe(drawRailStatus);
+  mountBreak(document.body);
   window.addEventListener("hashchange", route);
   route();
 }

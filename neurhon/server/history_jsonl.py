@@ -9,14 +9,14 @@ from neurhon.server.interfaces import HistoryEntry, HistoryStore, Mood, Track
 
 
 class JsonlHistoryStore(HistoryStore):
-    """Keeps the history in a text file, appending one line per entry."""
+    """Prowizoryczna implementacja HistoryStore"""
 
     def __init__(self, path: str | Path = "history.jsonl"):
         self._path = Path(path)
         self._lock = threading.Lock()
 
     def append(self, entry: HistoryEntry) -> None:
-        line = json.dumps(asdict(entry), ensure_ascii=False)
+        line = json.dumps(asdict(entry), ensure_ascii=False) # spłaszcza wartości ze słownika i zapisuje jako json
         with self._lock:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             with self._path.open("a", encoding="utf-8") as f:
@@ -42,7 +42,7 @@ class JsonlHistoryStore(HistoryStore):
                     reason=data.get("reason", "auto"),
                 )
             except (ValueError, KeyError, TypeError):
-                continue  # skip a damaged line instead of failing the whole history
+                continue  # jak wywali błąd to żeby nie było kichy
             if since is None or entry.timestamp >= since:
                 entries.append(entry)
 
