@@ -5,3 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "neurhon"
 version = "0.0.0"
+dependencies = [
+    "brainaccess-board",
+    "rich"
+]
+
+[project.scripts]
+neurhon-run = "neurhon.entry:run"

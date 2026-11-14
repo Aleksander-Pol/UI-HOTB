@@ -1,2 +1,3 @@
 **/**.histfile
 .vnv
+*.egg-info
