@@ -270,9 +270,17 @@ a { color: inherit; }
   display: grid;
   grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   gap: 20px;
-  align-items: start;
+  align-items: stretch; /* prawa kolumna dorównuje wysokością dużej karty z nastrojem */
 }
 .dash-side { display: grid; gap: 20px; }
+.dash-side > .card { display: flex; flex-direction: column; }
+/* Signals: paski rozkładają się równo w całej karcie */
+.dash-side > .card:last-child > div { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
+@media (min-width: 861px) {
+  /* dwie karty po prawej dzielą wysokość równo, razem tak wysoko jak karta z nastrojem */
+  .dash-side { grid-template-rows: 1fr 1fr; }
+  .dash-side > .card .controls { margin-top: auto; }
+}
 
 .mood-title {
   font-family: var(--font-display);
@@ -387,8 +395,18 @@ a { color: inherit; }
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in srgb, var(--bg) 94%, transparent);
-  backdrop-filter: blur(14px);
+  /* The one place with a hue: a light blue screen for the break. Everything inside is dark on light. */
+  --text: #14202e;
+  --muted: #3f5a78;
+  --line: #8fb8e3;
+  --surface-2: #a8cdf3;
+  background: #bfdfff;
+  color: var(--text);
+}
+.break-overlay .btn { background: #14202e; border-color: transparent; color: #f2f2f0; }
+.break-overlay :focus-visible { outline-color: #14202e; }
+@media (hover: hover) {
+  .break-overlay .btn:hover { background: #1f3247; border-color: transparent; }
 }
 .break-overlay-inner { display: grid; justify-items: center; gap: 4px; text-align: center; }
 .break-countdown {

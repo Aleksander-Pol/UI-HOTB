@@ -51,9 +51,17 @@ HISTORY_PATH = DATA_DIR / "history.jsonl" #main ścieżka zakodowana
 FOCUS_THRESHOLD_DEFAULT = 0.30  # poniżej tego focusu proponujemy przerwę
 LOW_FOCUS_SECONDS = 20  # tyle sekund focus musi być niski z rzędu
 BREAK_MINUTES = 10  # długość przerwy (program zawieszony)
-BREAK_COOLDOWN_MINUTES = 5  # po "Nie teraz" nie proponujemy przerwy przez tyle minut
-BREAK_GRACE_MINUTES = 2  # po przerwie dajemy sygnałowi czas na powrót
-BREAK_TRACK = Track("Weightless", "Marconi Union", "Break")  # utwór grany do decyzji użytkownika
+BREAK_COOLDOWN_MINUTES = 10  # po "Not now" focus nie jest mierzony przez tyle minut
+BREAK_GRACE_MINUTES = 0  # po przerwie focus jest mierzony od razu (wcześniejsze zakończenie jest na własne ryzyko)
+
+# Muzyka pobudzająca: gra w pętli (jeden losowy utwór), dopóki użytkownik nie kliknie "Stop music" lub "Not now".
+WAKE_VOLUME = 80  # głośność (0..100) na czas muzyki pobudzającej, potem wraca poprzednia
+WAKE_TRACKS = [
+    Track("Never Gonna Give You Up", "Rick Astley", "Wake up"),
+    Track("Thunderstruck", "AC/DC", "Wake up"),
+    Track("Enter Sandman", "Metallica", "Wake up"),
+    Track("Master of Puppets", "Metallica", "Wake up"),
+]
 
 
 @lru_cache(maxsize=1)

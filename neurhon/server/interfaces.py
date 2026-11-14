@@ -33,6 +33,16 @@ class Track:
     playlist: str = ""
 
 
+@dataclass
+class PlaybackState:
+    """Zapamiętany stan odtwarzacza. Wracamy do niego po muzyce pobudzającej."""
+
+    track: Track | None
+    playing: bool
+    volume: int | None = None  # głośność 0..100, None gdy nieznana
+    data: dict = field(default_factory=dict)  # dane implementacji (np. identyfikatory kontekstu i pozycja w Spotify)
+
+
 class MusicController(ABC):
     """ Interfejs do sterowania odtwarzaczem muzyki. Ma wszystkie metody które są potrzebne do sterowania"""
 
@@ -49,8 +59,17 @@ class MusicController(ABC):
         """Nastepny utwór"""
 
     @abstractmethod
-    def play_track(self, track: Track) -> None:
-        """Zagraj dokładnie ten utwór (np. utwór na przerwę)."""
+    def play_track(self, track: Track, volume: int | None = None, repeat: bool = False) -> None:
+        """Zagraj dokładnie ten utwór. volume (0..100) ustawia głośność, repeat=True powtarza utwór w pętli."""
+
+    @abstractmethod
+    def capture_state(self) -> PlaybackState:
+        """Zapamiętaj, co teraz gra i jaka jest głośność (wołane tuż przed muzyką pobudzającą)."""
+
+    @abstractmethod
+    def restore_state(self, state: PlaybackState, resume: bool) -> None:
+        """Przywróć głośność i wyłącz pętlę. Jeśli resume=True i wcześniej coś grało, wznów to,
+        w przeciwnym razie tylko zatrzymaj muzykę."""
 
     @abstractmethod
     def now_playing(self) -> Track | None:

@@ -11,22 +11,19 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from neurhon.server.break_mode import (
-    ACTIVE,
-    EVENT_OFFER,
-    OFFER,
-    BreakMonitor,
-)
+from neurhon.server.break_flow import BreakFlow
+from neurhon.server.break_mode import BreakMonitor
 from neurhon.server.config import (
     BREAK_COOLDOWN_MINUTES,
     BREAK_GRACE_MINUTES,
     BREAK_MINUTES,
-    BREAK_TRACK,
     DATA_DIR,
     FOCUS_THRESHOLD_DEFAULT,
     LOW_FOCUS_SECONDS,
     METRICS,
     MOOD_LABELS,
+    WAKE_TRACKS,
+    WAKE_VOLUME,
     get_setting,
 )
 from neurhon.server.interfaces import (
@@ -35,6 +32,7 @@ from neurhon.server.interfaces import (
     MoodProvider,
     MusicController,
 )
+from neurhon.server.notify import NullNotifier
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 TICK_SECONDS = 1.0  # how often the mood is read and pushed to the UI
@@ -61,6 +59,7 @@ def create_app(
     music: MusicController,
     history: HistoryStore,
     data_dir: Path = DATA_DIR,
+    notifier=None,
 ) -> FastAPI:
     """Build the app. It only knows the interfaces, never the real implementations."""
 
@@ -104,7 +103,7 @@ def create_app(
             "mood": asdict(latest_mood()),
             "player": player_state(),
             "auto": state["auto"],
-            "break": breaker.snapshot(),
+            "break": flow.snapshot(),
         }
 
     def log_change(reason: str) -> None:
@@ -112,26 +111,32 @@ def create_app(
         if track:
             history.append(HistoryEntry(time.time(), track, latest_mood(), reason))
 
+    def on_wake_started(focus) -> None:
+        reason = f"break: low focus ({focus:.2f})" if focus is not None else "break: test"
+        log_change(reason)
+
+    # BreakFlow łączy tryb przerwy z muzyką i powiadomieniami (patrz break_flow.py)
+    flow = BreakFlow(
+        breaker, music, notifier or NullNotifier(), WAKE_TRACKS, WAKE_VOLUME, on_wake_started=on_wake_started
+    )
+
     def step() -> None:
         """Read the mood once. In auto mode, skip to a new song when the label changes.
 
         PLACEHOLDER: choosing the music from the mood is the Spotify side's job.
         Here the next song of the mock playlist stands in for that choice.
         """
-        if breaker.phase == ACTIVE:
-            breaker.update(None)  # tylko sprawdza, czy minął czas przerwy
+        if flow.suspended:
+            flow.tick(None)  # przerwa trwa: tylko pilnujemy, czy minął czas
             return  # program jest zawieszony: bez odczytu nastroju, muzyki i historii
 
         previous = state["mood"]
         current = mood.get_mood()
         state["mood"] = current
 
-        if breaker.update(current.scores.get("focus")) == EVENT_OFFER:
-            music.play_track(BREAK_TRACK)
-            log_change(f"break: low focus ({current.scores['focus']:.2f})")
-            return
-        if breaker.phase == OFFER:
-            return  # gra utwór przerwy, tryb auto go nie zmienia
+        flow.tick(current.scores.get("focus"))  # tu może ruszyć muzyka pobudzająca
+        if flow.waking:
+            return  # gra muzyka pobudzająca, tryb auto jej nie zmienia
 
         if (
             state["auto"]
@@ -228,34 +233,34 @@ def create_app(
 
     @app.post("/api/break/enabled")
     def set_break_enabled(body: EnabledBody):
-        was_offer = breaker.phase == OFFER
-        breaker.set_enabled(body.enabled)
-        if was_offer and not body.enabled:
-            music.pause()  # propozycja zniknęła, więc zatrzymujemy utwór przerwy
-        return breaker.snapshot()
+        flow.set_enabled(body.enabled)
+        return flow.snapshot()
 
     @app.post("/api/break/accept")
     def accept_break():
-        if breaker.accept():
-            music.pause()  # przerwa: muzyka stoi
-        return breaker.snapshot()
+        flow.accept()  # "Stop music": cisza i początek przerwy
+        return flow.snapshot()
 
     @app.post("/api/break/dismiss")
     def dismiss_break():
-        if breaker.dismiss():
-            music.pause()  # "Nie teraz": zatrzymaj utwór przerwy
-        return breaker.snapshot()
+        flow.dismiss()  # "Not now": poprzednia muzyka wraca, 10 minut spokoju
+        return flow.snapshot()
 
     @app.post("/api/break/end")
     def end_break():
-        breaker.end()
-        return breaker.snapshot()
+        flow.end()
+        return flow.snapshot()
+
+    @app.post("/api/break/test")
+    def test_break():
+        flow.test()  # cała sekwencja bez czekania na spadek focusu
+        return flow.snapshot()
 
     @app.put("/api/break/threshold")
     def set_break_threshold(body: ThresholdBody):
         breaker.threshold = body.value
         save_settings({"focus_threshold": body.value})
-        return breaker.snapshot()
+        return flow.snapshot()
 
     @app.get("/api/mappings")
     def get_mappings():

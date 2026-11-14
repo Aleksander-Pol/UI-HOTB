@@ -29,6 +29,7 @@ export const api = {
   acceptBreak: () => request("POST", "/api/break/accept"),
   dismissBreak: () => request("POST", "/api/break/dismiss"),
   endBreak: () => request("POST", "/api/break/end"),
+  testBreak: () => request("POST", "/api/break/test"),
   setBreakThreshold: (value) => request("PUT", "/api/break/threshold", { value }),
   mappings: () => request("GET", "/api/mappings"),
   saveMappings: (mappings) => request("PUT", "/api/mappings", { mappings }),

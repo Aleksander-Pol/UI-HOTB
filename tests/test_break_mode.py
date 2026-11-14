@@ -122,6 +122,23 @@ class BreakMonitorTest(unittest.TestCase):
         feed(self.monitor, self.clock, 0.5, 25)
         self.assertEqual(self.monitor.phase, OFFER)
 
+    def test_zero_grace_measures_focus_right_after_break(self):
+        monitor = BreakMonitor(0.3, 20, 600, 300, 0, clock=self.clock)
+        monitor.set_enabled(True)
+        feed(monitor, self.clock, 0.1, 25)
+        monitor.accept()
+        monitor.end()
+        feed(monitor, self.clock, 0.1, 19)
+        self.assertEqual(monitor.phase, WATCHING)
+        feed(monitor, self.clock, 0.1, 2)
+        self.assertEqual(monitor.phase, OFFER)
+
+    def test_force_offer_jumps_straight_to_the_wake_phase(self):
+        fresh = BreakMonitor(0.3, 20, 600, 300, 0, clock=self.clock)
+        self.assertEqual(fresh.force_offer(), EVENT_OFFER)  # także z wyłączonego
+        self.assertEqual(fresh.phase, OFFER)
+        self.assertIsNone(fresh.force_offer())  # w trakcie budzenia nic nie robi
+
     def test_snapshot_shape(self):
         self.assertEqual(
             self.monitor.snapshot(),

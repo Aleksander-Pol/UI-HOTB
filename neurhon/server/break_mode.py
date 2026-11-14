@@ -99,6 +99,16 @@ class BreakMonitor:
         self._low_since = None
         return True
 
+    def force_offer(self) -> str | None:
+        """Przycisk testowy: od razu przechodzi do fazy budzenia (tylko z fazy watching)."""
+        if self.phase == OFF:
+            self.phase = WATCHING
+        if self.phase != WATCHING:
+            return None
+        self.phase = OFFER
+        self._low_since = None
+        return EVENT_OFFER
+
     def end(self) -> bool:
         """Użytkownik kończy przerwę wcześniej."""
         if self.phase != ACTIVE:

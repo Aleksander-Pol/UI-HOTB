@@ -12,7 +12,9 @@ The UI never talks to the headband or to Spotify. It talks to the server in
 |---|---|---|
 | `MoodProvider` | `get_mood()` | `Mood`: the latest reading. Must return fast (read the newest value, do not wait for new EEG data). |
 | `MusicController` | `play()`, `pause()`, `next_track()` | nothing |
-| | `play_track(track)` | nothing. Plays exactly this song (used for the break song). |
+| | `play_track(track, volume=None, repeat=False)` | nothing. Plays exactly this song; `volume` (0 to 100) sets the volume, `repeat=True` loops the song (wake-up music). |
+| | `capture_state()` | `PlaybackState(track, playing, volume, data)`: remember what plays now and the volume. |
+| | `restore_state(state, resume)` | nothing. Restore volume, turn the loop off. If `resume` and something played before, resume it, otherwise just stop. |
 | | `now_playing()` | `Track` or `None` |
 | | `is_playing()` | `bool` |
 | `HistoryStore` | `append(entry)`, `get_entries(limit, since)` | already done by `JsonlHistoryStore` |
@@ -49,15 +51,20 @@ Per-mood genre or playlist hints typed in Settings are stored in
 ## Break mode
 
 When Break mode is on and `focus` stays below the threshold (default 0.30) for
-20 seconds in a row, the server calls `music.play_track(BREAK_TRACK)` and the UI
-offers a 10 minute break. The song plays until the user decides.
-- **Take the break:** music is paused and the app is suspended for 10 minutes
-  (no mood reading, no auto mode, no history).
-- **Not now:** the song stops and no new offer comes for 5 minutes.
+20 seconds in a row:
+1. the server calls `capture_state()`, then `play_track(random song of WAKE_TRACKS, volume=80, repeat=True)`
+   (loud wake-up music, in `config.py`);
+2. a desktop notification (Windows toast) and an in-app banner offer **Stop music** and **Not now**.
 
-The logic lives in `neurhon/server/break_mode.py` (`BreakMonitor`, covered by
-`tests/test_break_mode.py`). Numbers are set in `config.py`. The threshold is
-editable in Settings and saved to `data/settings.json`.
+- **Not now:** `restore_state(state, resume=True)`; the old music comes back and focus is not checked for 10 minutes.
+- **Stop music:** `restore_state(state, resume=False)`; silence, and a 10 minute break starts (light blue screen,
+  no mood reading, no auto mode, no history). After the break (time is up or "End break now")
+  `restore_state(state, resume=True)` brings the old music back, and focus is checked again at once.
+- If the music cannot start, the notification and the banner still appear.
+
+The logic lives in `neurhon/server/break_mode.py` (`BreakMonitor`) and `break_flow.py` (`BreakFlow`),
+the notifications in `notify.py`. Numbers are set in `config.py`. The threshold is editable in Settings
+and saved to `data/settings.json`. Settings also has a "Test break mode" button.
 
 ## HTTP and WebSocket (for reference)
 
@@ -71,7 +78,8 @@ editable in Settings and saved to `data/settings.json`.
 | `GET /api/status` | data source names, auto mode, Spotify state |
 | `POST /api/auto` `{"enabled": true}` | switch auto mode |
 | `POST /api/break/enabled` `{"enabled": true}` | switch Break mode, returns the break state |
-| `POST /api/break/accept`, `/dismiss`, `/end` | answer the offer, or end the break early |
+| `POST /api/break/accept` (Stop music), `/dismiss` (Not now), `/end` | answer the offer, or end the break early |
+| `POST /api/break/test` | run the whole break sequence now (turns Break mode on) |
 | `PUT /api/break/threshold` `{"value": 0.3}` | focus threshold (0 to 1) |
 | `GET /api/mappings`, `PUT /api/mappings` `{"mappings": {...}}` | mood to genre hints |
 | `WS /ws/mood` | pushes `{mood, player, auto, break}` every second |

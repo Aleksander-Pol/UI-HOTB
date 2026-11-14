@@ -65,7 +65,7 @@ Idee, które warto tłumaczyć użytkownikowi na przykładach z tego kodu:
 | `js/state.js` | Wspólny stan, `subscribe`, ustawienia w `localStorage`, logika pauzy w tle (`isPaused`), ustawianie koloru akcentu. |
 | `js/modules.js` | Rejestr zakładek. Menu i router budują się z tej listy. |
 | `js/app.js` | Start, menu, router po `#hash`, pasek statusu. |
-| `js/views/*.js` | `dashboard` (mapa energy/valence z kropką i śladem, Now playing, tryb auto, tryb przerwy, paski sygnałów), `history` (filtry, grupy po dniach), `settings`, `extensions`. Każdy eksportuje `render(container)` i może zwrócić funkcję sprzątającą. |
+| `js/views/*.js` | `dashboard` (mapa energy/valence z kropką i śladem, Now playing, przełącznik trybu przerwy, paski sygnałów; przełącznik Auto mode jest w Settings), `history` (filtry, grupy po dniach), `settings`, `extensions`. Każdy eksportuje `render(container)` i może zwrócić funkcję sprzątającą. |
 
 Diagram przepływu danych (prywatny artefakt, link może wymagać uprawnień): `https://claude.ai/artifact/4W2udUs5dFtnnWN4dEAQpF`.
 
@@ -89,13 +89,24 @@ python -m neurhon.server.main --no-browser --port 8000   # z katalogu głównego
 - Brak testów automatycznych.
 - Niezrobione z planu: `CLAUDE.local.md` (czeka na treść od użytkownika), tray/okno desktopowe, autostart.
 
-## 8. Tryb przerwy (dodany później)
-- Gdy Break mode jest włączony, a `focus` jest poniżej progu (domyślnie 0.30) przez 20 s, serwer puszcza utwór przerwy (`config.BREAK_TRACK`) i UI proponuje 10 minut przerwy. Utwór gra bez limitu, aż użytkownik zdecyduje.
-- "Take a break": muzyka pauzowana, **program zawieszony na 10 minut** (bez odczytu nastroju, trybu auto i historii). "Not now": cooldown 5 min.
-- Logika: `neurhon/server/break_mode.py` (`BreakMonitor`, maszyna stanów off/watching/offer/active ze sztucznym zegarem w testach). Integracja w `step()` w `app.py`. Testy: `python -m unittest` (12 testów w `tests/test_break_mode.py`).
-- UI: `neurhon/ui/js/break.js` (baner i nakładka na każdej zakładce), przełącznik na Dashboardzie, próg w Settings.
-- **Zmiana kontraktu:** `MusicController` ma nową metodę abstrakcyjną `play_track(track)`. Koledzy od Spotify muszą ją zaimplementować. Koledzy od EEG muszą zwracać klucze `energy` i `focus` (zamiast `arousal`).
-- Użytkownik dopisuje własne komentarze po polsku w plikach Pythona (notatki do nauki). Nie nadpisuj ich i nowe komentarze też pisz po polsku.
+## 8. Tryb przerwy (wersja 2: muzyka pobudzająca, push, jasnoniebieskie uśpienie)
+Uzgodniony z użytkownikiem w rozmowie typu grill-me. Przebieg:
+1. Break mode włączony (przełącznik w Settings, domyślnie wyłączony), `focus` poniżej progu (Settings, domyślnie 0.30) przez 20 s z rzędu: **faza budzenia**.
+2. Budzenie: `capture_state()` (zapamiętanie, co grało i głośność), potem `play_track(losowy z config.WAKE_TRACKS, volume=WAKE_VOLUME, repeat=True)` (Rick Astley, AC/DC, Metallica; głośność 80). Tryb auto nie zmienia utworu. Wpis w historii `break: low focus (x)`. **Powiadomienie systemowe Windows** i baner w aplikacji z przyciskami "Stop music" i "Not now" (kliknięcie w jednym zamyka drugie).
+3. **"Not now":** `restore_state(..., resume=True)` (dawna muzyka i głośność wracają), przez **10 minut focus nie jest mierzony** (`BREAK_COOLDOWN_MINUTES`).
+4. **"Stop music"** = początek przerwy: `restore_state(..., resume=False)` (głośność wraca, cisza), jasnoniebieska nakładka `#BFDFFF` z ciemnym tekstem, odliczanie 10 min, "End break now". W przerwie nie czytamy nastroju, nie ruszamy muzyki, nie piszemy historii.
+5. Koniec przerwy (czas albo przycisk): `restore_state(..., resume=True)` (dawna muzyka wraca), po upływie czasu powiadomienie "Break over". Focus jest mierzony **od razu** (`BREAK_GRACE_MINUTES = 0`), z warunkiem 20 s; przy nadal niskim focusie muzyka pobudzająca wraca.
+6. Gdy muzyka nie może wystartować (brak urządzenia, Premium, atrapa), powiadomienie i baner i tak się pokazują. Settings ma przycisk **"Test break mode"** (uruchamia sekwencję i włącza Break mode).
+
+Gdzie jest kod:
+- `neurhon/server/break_mode.py`: `BreakMonitor`, czysta maszyna stanów (off, watching, offer, active) z podmienialnym zegarem.
+- `neurhon/server/break_flow.py`: `BreakFlow`, łączy monitor z muzyką i powiadomieniami, trzyma zapamiętany stan odtwarzania, wszystko pod `RLock` (wołane z pętli serwera, wątków FastAPI i wątku powiadomień).
+- `neurhon/server/notify.py`: `DesktopNotifier` (biblioteka `windows-toasts`, przyciski wywołują funkcje w naszym procesie) i `NullNotifier` (gdy biblioteki brak, działa sam baner). Zależność w `pyproject.toml` tylko dla Windowsa.
+- `neurhon/server/notify_setup.py`: jednorazowa rejestracja nazwy "neurhon" i ikony ρ w `HKCU\Software\Classes\AppUserModelId\neurhon.ui` (`python -m neurhon.server.notify_setup`, usunięcie przez `--remove`). Bez niej powiadomienia działają, ale bez własnej nazwy i ikony, a przycisk po przeniesieniu do Centrum akcji może nie zadziałać.
+- UI: `neurhon/ui/js/break.js` (baner i nakładka na każdej zakładce); przełącznik Break mode, próg i przycisk testowy są w Settings (z Dashboardu usunięte, tak jak Auto mode).
+- Testy: `python -m unittest` (`tests/test_break_mode.py`, `tests/test_break_flow.py`, `tests/test_notify.py`). Testy powiadomień wymagają `windows-toasts` (w `.venv` jest, w globalnym Pythonie są pomijane).
+- **Zmiana kontraktu `MusicController`:** `play_track(track, volume=None, repeat=False)`, `capture_state() -> PlaybackState`, `restore_state(state, resume)`. Koledzy od EEG muszą zwracać klucze `energy` i `focus` (zamiast `arousal`).
+- Niezweryfikowane bez użytkownika: czy powiadomienie faktycznie wyskakuje i czy jego przyciski działają na jego komputerze (także przy "Nie przeszkadzać"), oraz jak brzmi muzyka na prawdziwym Spotify.
 
 ## 9. Wygląd: motyw ρ (dodany później)
 - Tożsamość wizualna pochodzi z `docs/rho.png` (grecka litera ρ). Przetworzona wersja z kanałem alfa: `neurhon/ui/img/rho.png` (używana jako maska CSS, więc ma kolor `currentColor`) i `neurhon/ui/img/favicon.png`.

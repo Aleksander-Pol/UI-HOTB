@@ -2,7 +2,7 @@
 
 import { api } from "../api.js";
 import { capitalize, h, icon, s, toast } from "../dom.js";
-import { moodMeta, setAuto, setBreak, setPlayer, state, subscribe } from "../state.js";
+import { moodMeta, setPlayer, state, subscribe } from "../state.js";
 
 // Drawing area of the mood map (SVG units).
 const W = 460;
@@ -105,23 +105,6 @@ async function skip() {
   }
 }
 
-async function toggleAuto() {
-  try {
-    const result = await api.setAuto(!state.auto);
-    setAuto(result.auto);
-  } catch {
-    toast("Could not change auto mode.");
-  }
-}
-
-async function toggleBreakMode() {
-  try {
-    setBreak(await api.setBreakEnabled(!state.break.enabled));
-  } catch {
-    toast("Could not change break mode.");
-  }
-}
-
 let entered = false; // wejście kart odtwarzamy tylko przy pierwszym otwarciu widoku
 
 function cardAttrs(index) {
@@ -154,18 +137,6 @@ export function render(root) {
     "button",
     { class: "btn btn-round", type: "button", "aria-label": "Next track", onclick: skip },
     icon(NEXT, true)
-  );
-
-  const autoSwitch = h(
-    "button",
-    { class: "switch", type: "button", role: "switch", "aria-checked": "false", "aria-labelledby": "auto-label", onclick: toggleAuto },
-    h("span", { class: "knob" })
-  );
-
-  const breakSwitch = h(
-    "button",
-    { class: "switch", type: "button", role: "switch", "aria-checked": "false", "aria-labelledby": "break-label", onclick: toggleBreakMode },
-    h("span", { class: "knob" })
   );
 
   const metricsBox = h("div");
@@ -241,8 +212,6 @@ export function render(root) {
     playIcon.setAttribute("data-active", String(!player?.playing));
     pauseIcon.setAttribute("data-active", String(Boolean(player?.playing)));
     playButton.setAttribute("aria-label", player?.playing ? "Pause" : "Play");
-    autoSwitch.setAttribute("aria-checked", String(st.auto));
-    breakSwitch.setAttribute("aria-checked", String(st.break.enabled));
   }
 
   root.append(
@@ -263,37 +232,7 @@ export function render(root) {
           artist,
           h("div", { class: "controls" }, playButton, nextButton)
         ),
-        h(
-          "section",
-          cardAttrs(2),
-          h(
-            "div",
-            { class: "row-between" },
-            h(
-              "div",
-              null,
-              h("strong", { id: "auto-label" }, "Auto mode"),
-              h("p", { class: "hint" }, "Skips to a new song when your mood changes. Works while music is playing.")
-            ),
-            autoSwitch
-          )
-        ),
-        h(
-          "section",
-          cardAttrs(3),
-          h(
-            "div",
-            { class: "row-between" },
-            h(
-              "div",
-              null,
-              h("strong", { id: "break-label" }, "Break mode"),
-              h("p", { class: "hint" }, "When your focus stays low, a calm song plays and you can take a 10 minute break.")
-            ),
-            breakSwitch
-          )
-        ),
-        h("section", cardAttrs(4), h("h2", { class: "card-title" }, "Signals"), metricsBox)
+        h("section", cardAttrs(2), h("h2", { class: "card-title" }, "Signals"), metricsBox)
       )
     )
   );

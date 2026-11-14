@@ -25,7 +25,7 @@ export function mountBreak(parent) {
   const offer = h(
     "div",
     { class: "break-offer", role: "alert" },
-    h("strong", null, "Time for a break?"),
+    h("strong", null, "Your focus dropped"),
     offerText,
     h(
       "div",
@@ -33,7 +33,7 @@ export function mountBreak(parent) {
       h(
         "button",
         { class: "btn btn-primary", type: "button", onclick: () => act(api.acceptBreak, "Could not start the break.") },
-        "Take a 10 minute break"
+        "Stop music"
       ),
       h("button", { class: "btn", type: "button", onclick: () => act(api.dismissBreak, "Could not dismiss.") }, "Not now")
     )
@@ -47,9 +47,9 @@ export function mountBreak(parent) {
     h(
       "div",
       { class: "break-overlay-inner" },
-      h("h2", { class: "page-title" }, "You are on a break"),
+      h("h2", { class: "page-title" }, "Time for a break"),
       countdown,
-      h("p", { class: "page-sub" }, "Mood tracking and music are paused until the timer ends."),
+      h("p", { class: "page-sub" }, "Step away from the screen. Mood tracking is paused."),
       h(
         "button",
         { class: "btn", type: "button", onclick: () => act(api.endBreak, "Could not end the break.") },
@@ -71,7 +71,8 @@ export function mountBreak(parent) {
     const phase = st.break.phase;
 
     offer.classList.toggle("is-open", phase === "offer"); // ukrywanie robi CSS (visibility), z animacją
-    offerText.textContent = `Your focus dropped below ${st.break.threshold.toFixed(2)}. A calm song is playing until you decide.`;
+    const song = st.player?.track?.title;
+    offerText.textContent = `${song ? `"${song}"` : "Loud music"} is playing until you decide. Stopping the music starts a 10 minute break.`;
 
     overlay.classList.toggle("is-open", phase === "active");
     if (phase === "active" && !timer) {

@@ -10,7 +10,8 @@ dependencies = [
     "brainaccess",
     "rich",
     "fastapi",
-    "uvicorn[standard]"
+    "uvicorn[standard]",
+    "windows-toasts; sys_platform == 'win32'"
 ]
 
 [project.scripts]

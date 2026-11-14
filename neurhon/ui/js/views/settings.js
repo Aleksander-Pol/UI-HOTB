@@ -2,7 +2,7 @@
 
 import { api } from "../api.js";
 import { h, toast } from "../dom.js";
-import { saveSettings, setBreak, settings, state } from "../state.js";
+import { saveSettings, setAuto, setBreak, settings, state, subscribe } from "../state.js";
 
 function spotifySection(spotify) {
   const configured = spotify?.configured;
@@ -126,6 +126,41 @@ function mappingSection() {
   );
 }
 
+function autoSection() {
+  const toggle = h(
+    "button",
+    { class: "switch", type: "button", role: "switch", "aria-checked": String(state.auto), "aria-labelledby": "auto-label" },
+    h("span", { class: "knob" })
+  );
+  toggle.addEventListener("click", async () => {
+    try {
+      const result = await api.setAuto(!state.auto);
+      setAuto(result.auto);
+    } catch {
+      toast("Could not change auto mode.");
+    }
+  });
+
+  const node = h(
+    "section",
+    { class: "card" },
+    h("h2", { class: "card-title" }, "Auto mode"),
+    h(
+      "div",
+      { class: "row-between" },
+      h(
+        "div",
+        null,
+        h("strong", { id: "auto-label" }, "Change songs with my mood"),
+        h("p", { class: "hint" }, "Skips to a new song when your mood changes. Works while music is playing.")
+      ),
+      toggle
+    )
+  );
+  // przełącznik odzwierciedla stan serwera, także gdy zmieni go ktoś inny
+  return { node, sync: () => toggle.setAttribute("aria-checked", String(state.auto)) };
+}
+
 function breakSection() {
   const input = h("input", {
     class: "field",
@@ -152,11 +187,43 @@ function breakSection() {
     }
   }
 
-  return h(
+  const toggle = h(
+    "button",
+    { class: "switch", type: "button", role: "switch", "aria-checked": String(state.break.enabled), "aria-labelledby": "break-label" },
+    h("span", { class: "knob" })
+  );
+  toggle.addEventListener("click", async () => {
+    try {
+      setBreak(await api.setBreakEnabled(!state.break.enabled));
+    } catch {
+      toast("Could not change break mode.");
+    }
+  });
+
+  async function runTest() {
+    try {
+      setBreak(await api.testBreak());
+    } catch {
+      toast("Could not start the test.");
+    }
+  }
+
+  const node = h(
     "section",
     { class: "card" },
     h("h2", { class: "card-title" }, "Break mode"),
-    h("p", { class: "hint", style: "margin-bottom:14px" }, "When Focus stays below this value, a calm song plays and you are offered a break. Turn the mode on from the Dashboard."),
+    h(
+      "div",
+      { class: "row-between", style: "margin-bottom:16px" },
+      h(
+        "div",
+        null,
+        h("strong", { id: "break-label" }, "Nudge me to take a break"),
+        h("p", { class: "hint" }, "When your focus stays low, loud music plays until you stop it. Stopping it starts a 10 minute break.")
+      ),
+      toggle
+    ),
+    h("p", { class: "hint", style: "margin-bottom:14px" }, "The music starts when Focus stays below this value:"),
     h(
       "div",
       { class: "filters", style: "margin:0" },
@@ -170,15 +237,40 @@ function breakSection() {
       h("dt", null, "Low for"),
       h("dd", null, "20 seconds in a row"),
       h("dt", null, "Break length"),
-      h("dd", null, "10 minutes, the app is paused")
+      h("dd", null, "10 minutes, the app is paused"),
+      h("dt", null, "Not now"),
+      h("dd", null, "10 minutes without checking your focus")
+    ),
+    h(
+      "div",
+      { style: "margin-top:16px" },
+      h("button", { class: "btn", type: "button", onclick: runTest }, "Test break mode"),
+      h("p", { class: "hint" }, "Starts the whole sequence now (music, notification, banner) and turns Break mode on.")
     )
   );
+  // przełącznik odzwierciedla stan serwera, także po "Test break mode"
+  return { node, sync: () => toggle.setAttribute("aria-checked", String(state.break.enabled)) };
 }
 
 export function render(root) {
+  const auto = autoSection();
+  const breakMode = breakSection();
   root.append(
     h("h1", { class: "page-title" }, "Settings"),
-    h("p", { class: "page-sub" }, "Connections, display options and how moods map to music."),
-    h("div", { class: "stack" }, spotifySection(state.status?.spotify), deviceSection(state.status), breakSection(), displaySection(), mappingSection())
+    h("p", { class: "page-sub" }, "Connections, modes, display options and how moods map to music."),
+    h(
+      "div",
+      { class: "stack" },
+      spotifySection(state.status?.spotify),
+      deviceSection(state.status),
+      auto.node,
+      breakMode.node,
+      displaySection(),
+      mappingSection()
+    )
   );
+  return subscribe((st) => {
+    auto.sync(st);
+    breakMode.sync(st);
+  }); // subscribe zwraca funkcję sprzątającą
 }

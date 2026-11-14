@@ -10,6 +10,7 @@ from neurhon.server.app import create_app
 from neurhon.server.config import HISTORY_PATH
 from neurhon.server.history_jsonl import JsonlHistoryStore
 from neurhon.server.mocks import MockMoodProvider, MockMusicController
+from neurhon.server.notify import create_notifier
 
 
 def main() -> None:
@@ -24,7 +25,8 @@ def main() -> None:
     music = MockMusicController()
     history = JsonlHistoryStore(HISTORY_PATH)
 
-    app = create_app(mood, music, history)
+    # powiadomienia systemowe to dodatek: gdy ich nie ma, działa sam baner w aplikacji
+    app = create_app(mood, music, history, notifier=create_notifier())
 
     url = f"http://127.0.0.1:{args.port}"
     if not args.no_browser:
